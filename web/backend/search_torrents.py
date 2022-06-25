@@ -1,12 +1,15 @@
 import log
+from config import Config
 from message.send import Message
 from pt.downloader import Downloader
 from pt.searcher import Searcher
 from pt.torrent import Torrent
 from rmt.media import Media
+from rmt.meta.metabase import MetaBase
 from rmt.metainfo import MetaInfo
-from utils.sqls import insert_search_results, delete_all_search_torrents
-from utils.types import SearchType
+from utils.sqls import insert_search_results, delete_all_search_torrents, insert_rss_tv, insert_rss_movie
+from utils.types import SearchType, MediaType
+from web.backend.subscribe import add_rss_subscribe
 
 SEARCH_MEDIA_CACHE = []
 
@@ -142,7 +145,7 @@ def search_media_by_message(input_str, in_from: SearchType, user_id=None):
                                             user_id=user_id)
 
 
-def __search_media(in_from, media_info, user_id):
+def __search_media(in_from, media_info: MetaBase, user_id):
     # 检查是否存在，电视剧返回不存在的集清单
     exist_flag, no_exists, messages = Downloader().check_exists_medias(meta_info=media_info)
     # 已经存在
@@ -163,6 +166,29 @@ def __search_media(in_from, media_info, user_id):
         Message().send_channel_msg(channel=in_from,
                                    title="%s 未搜索到任何资源" % media_info.title,
                                    user_id=user_id)
+        # 自动添加订阅
+        if Config().get_config('pt').get('search_no_result_rss'):
+            # 添加订阅
+            if add_rss_subscribe(mtype=media_info.type,
+                                 name=media_info.title,
+                                 year=media_info.year,
+                                 season=media_info.begin_season,
+                                 tmdbid=media_info.tmdb_id,
+                                 state='R'):
+                # 发送通知
+                if media_info.type == MediaType.MOVIE:
+                    msg_title = f"{media_info.get_title_string()} 已添加订阅"
+                else:
+                    msg_title = f"{media_info.get_title_string()} {media_info.get_season_string()} 已添加订阅"
+                msg_str = f"类型：{media_info.type.value}"
+                if media_info.vote_average:
+                    msg_str = f"{msg_str}，{media_info.get_vote_string()}"
+                Message().send_channel_msg(channel=in_from,
+                                           title=msg_title,
+                                           text=msg_str,
+                                           image=media_info.get_message_image(),
+                                           url='movie_rss' if media_info.type == MediaType.MOVIE else 'tv_rss',
+                                           user_id=user_id)
     # 搜索到了但是没开自动下载
     elif download_count is None:
         Message().send_channel_msg(channel=in_from,
