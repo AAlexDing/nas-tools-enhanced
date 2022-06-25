@@ -6,6 +6,18 @@ from werkzeug.security import generate_password_hash
 
 from utils.functions import singleton
 
+##########################################
+# 云端本地同步时间间隔
+CLOUD_NATIVESYNC_INTERVAL = 300
+# 云端本地一致性检测时间间隔
+CONSISTENCY_CHECK_INTERVAL = 24
+# 0Byte化文件的最大大小
+ZEROBYTETHRESHOLD = 1024
+# 判断是软链接还是复制文件的临界大小
+SYMLINKMAXFILESIZE = 1024 * 1024
+# 同步时删除大量文件需要确认的临界大小
+SYNCWARNINGTHRESHOLD = 100
+###########################################
 # 菜单对应关系，配置WeChat应用中配置的菜单ID与执行命令的对应关系，需要手工修改
 # 菜单序号在https://work.weixin.qq.com/wework_admin/frame#apps 应用自定义菜单中维护，然后看日志输出的菜单序号是啥（按顺利能猜到的）....
 # 命令对应关系：/ptt PT文件转移；/ptr PT删种；/pts PT签到；/rst 目录同步；/rss RSS下载

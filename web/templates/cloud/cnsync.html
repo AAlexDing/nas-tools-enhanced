@@ -1,0 +1,180 @@
+<div class="container-xxl">
+  <!-- Page title -->
+  <div class="page-header d-print-none">
+    <div class="row align-items-center">
+      <div class="col">
+        <h2 class="page-title">
+          云端本地同步
+        </h2>
+      </div>
+      <div class="col-auto ms-auto d-print-none">
+        <div class="btn-list">
+          <a href="javascript:show_directory_modal()" class="btn btn-primary d-none d-sm-inline-block">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            新增同步目录
+          </a>
+          <a href="javascript:show_directory_modal()" class="btn btn-primary d-sm-none btn-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- 业务页面代码 -->
+<div class="page-body">
+  <div class="container-xxl">
+    <div class="row row-cards">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body border-bottom py-3">
+            <div class="d-flex">
+              <div class="text-muted">
+                共 {{ SyncCount }} 条记录
+              </div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+              <thead>
+                <tr>
+                  <th>源目录</th>
+                  <th>目的目录</th>
+                  <th class="w-10 text-nowrap">识别重命名</th>
+                  <th class="w-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+              {% if SyncPaths %}
+                {% for SyncPath in SyncPaths %}
+                <tr>
+                  <td>{{ SyncPath.from or '' }}</td>
+                  <td>
+                    {{ SyncPath.to or '' }}
+                    {% if SyncPath.unknown and SyncPath.rename %}
+                      <div class="text-muted" >
+                      未识别：{{ SyncPath.unknown }}
+                      </div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if SyncPath.rename %}
+                    <span class="badge bg-green" title="已开启"></span>
+                    {% else %}
+                    <span class="badge bg-red" title="已关闭"></span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <a href="javascript:sub_directory_config('{{ SyncPath.from }}','{{ SyncPath.to }}','{{ SyncPath.unknown }}','{{ SyncPath.rename }}')" title="删除目录">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-x" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                         <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                         <line x1="18" y1="6" x2="6" y2="18"></line>
+                         <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr><td colspan="4" align="center">未配置</td></tr>
+              {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal modal-blur fade" id="modal-dirctory" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">新增同步目录</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <label class="form-label required">路径(<a href="#" title="源目录为需要同步的目录，目的目录为识别和改名后存放的目录，未识别目录为无法识别时转移的目录；只有源目录必须配置；目的目录未配置时将自动识别分类并转移到媒体库对应目录中；未识别目录下产生的文件程序不会主动清理，建议不配置，未识别记录可在媒体识别->手动识别功能下处理">?</a>)</label>
+          <div class="row g-2">
+            <div class="col-4">
+              <input type="text" value="" id="from_path" class="form-control" placeholder="源目录">
+            </div>
+            <div class="col-4">
+              <input type="text" value="" id="to_path" class="form-control" placeholder="目的目录">
+            </div>
+            <div class="col-4">
+              <input type="text" value="" id="unknown_path" class="form-control" placeholder="未识别目录">
+            </div>
+          </div>
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="rename_flag" checked>
+                <span class="form-check-label">识别并重命名</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <a href="javascript:add_directory_config()" id="directory_save_btn" class="btn btn-primary">确定</a>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  // 打开新增窗口
+  function show_directory_modal(){
+    $("#modal-dirctory").modal('show');
+  }
+
+  // 新增目录
+  function add_directory_config(){
+    if(!$("#from_path").val()){
+      $("#from_path").addClass("is-invalid");
+      return;
+    }else{
+      $("#from_path").removeClass("is-invalid");
+    }
+    if($("#unknown_path").val()){
+      value = $("#from_path").val() + "|" + $("#to_path").val() + "|" + $("#unknown_path").val();
+    }else if ($("#to_path").val()){
+      value = $("#from_path").val() + "|" + $("#to_path").val();
+    }else{
+      value = $("#from_path").val();
+    }
+    if(!$("#rename_flag").prop("checked")){
+      if(!$("#to_path").val()){
+        $("#to_path").addClass("is-invalid");
+        return;
+      }else{
+        $("#to_path").removeClass("is-invalid");
+      }
+      value = "[" + value + "]";
+    }
+    var params = {"oper": "add", "key": "sync.sync_path", "value": value};
+    $("#modal-dirctory").modal('hide');
+    ajax_post("update_directory", params, function (ret) {
+      navmenu('cnsync');
+    });
+  }
+
+  // 删除目录
+  function sub_directory_config(from, to, unknown, rename){
+    if(unknown){
+      value = from + "|" + to + "|" + unknown;
+    }else if(to){
+      value = from + "|" + to;
+    }else{
+      value = from;
+    }
+    if(rename != "True"){
+      value = "[" + value + "]";
+    }
+    var params = {"oper": "sub", "key": "sync.sync_path", "value": value};
+    ajax_post("update_directory", params, function (ret) {
+      navmenu('cnsync');
+    });
+  }
+</script>

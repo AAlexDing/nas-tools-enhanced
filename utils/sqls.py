@@ -7,7 +7,7 @@ from rmt.meta.metabase import MetaBase
 from utils.db_helper import update_by_sql, select_by_sql, update_by_sql_batch
 from utils.functions import str_filesize, xstr, str_sql
 from utils.types import MediaType, RmtMode
-
+from cloud.patterns import types
 
 # 将返回信息插入数据库
 def insert_search_results(media_items: list):
@@ -914,3 +914,428 @@ def is_media_downloaded(title, year):
         return True
     else:
         return False
+
+#################################################
+
+###################
+###### 未识别 ######
+###################
+
+
+# 查询未识别的记录列表
+def get_cloud_unknown_paths(driveType=None,mediaType=None,category=None):
+    add_sql = ""
+    if driveType:
+        add_sql += " AND driveType = '%s'" % driveType
+    if mediaType:
+        add_sql += " AND mediaType = '%s'" % mediaType
+    if category:
+        add_sql += " AND category = '%s'" % category
+    sql = "SELECT * FROM CLOUD_UNKNOWN WHERE (state != 'Y'%s)"%add_sql
+    return select_by_sql(sql)
+
+
+# 更新未识别记录状态
+def update_cloud_unknown_state(path,state='Y'):
+    if not path or not state:
+        return False
+    path = os.path.normpath(path)
+    sql = "UPDATE CLOUD_UNKNOWN SET state = ? WHERE path = ?"
+    return update_by_sql(sql, (str_sql(state),str_sql(path),))
+
+
+# 删除未识别记录
+def delete_cloud_unknown(tid):
+    if not tid:
+        return False
+    sql = "DELETE FROM CLOUD_UNKNOWN WHERE id = ?"
+    return update_by_sql(sql, (tid,))
+
+
+# 查询未识别记录
+def get_unknown_path_by_id(tid):
+    if not tid:
+        return False
+    sql = "SELECT PATH,DEST FROM CLOUD_UNKNOWN WHERE id = ?"
+    return select_by_sql(sql, (tid,))
+
+
+# 查询未识别记录是否存在
+def is_cloud_unknown_exists(path):
+    if not path:
+        return False
+    path = os.path.normpath(path)
+    sql = "SELECT COUNT(1) FROM CLOUD_UNKNOWN WHERE path = ?"
+    ret = select_by_sql(sql, (str_sql(path),))
+    if ret and ret[0][0] > 0:
+        return True
+    else:
+        return False
+
+
+# 插入未识别记录
+def insert_cloud_unknown(driveType,mediaType,category,path,state):
+    if not path or not driveType or not mediaType or not category or not state:
+        return False
+    if is_cloud_unknown_exists(path):
+        return False
+    else:
+        path = os.path.normpath(path)
+        if dest:
+            dest = os.path.normpath(dest)
+        else:
+            dest = ""
+        sql = "INSERT INTO CLOUD_UNKNOWN(driveType,mediaType,category,path,state) VALUES (?, ?, ?, ?, ?)"
+        return update_by_sql(sql, (str_sql(driveType), str_sql(mediaType), str_sql(category),str_sql(path),str_sql(state)))
+
+####################
+###### 软链接 #######
+####################
+
+'''
+            # 本地软链接对照表
+            # STATE: Y正常 N软链接被删除 C真实文件被删除(检查网盘离线情况) U未知情况
+            cursor.execute(''CREATE TABLE IF NOT EXISTS SYMLINK_MANAGER()
+                                   (id INTEGER PRIMARY KEY AUTOINCREMENT     NOT NULL,
+                                   driveType    TEXT,
+                                   category    TEXT,
+                                   symlinkPath    TEXT,
+                                   realPath   TEXT,
+                                   state    TEXT);'')
+
+'''
+# 插入软链接对照条目
+def insert_symlink_info(driveType,category,symlinkPath,realPath,state):
+    if not driveType or not category or not symlinkPath or not realPath or not state:
+        return False
+    if is_symlink_exists(symlinkPath):
+        return False
+    else:
+        symlinkPath = os.path.normpath(symlinkPath)
+        realPath = os.path.normpath(realPath)
+        sql = "INSERT INTO SYMLINK_MANAGER(driveType,category,symlinkPath,realPath,state) VALUES (?, ?, ?, ?, ?)"
+        return update_by_sql(sql, (str_sql(driveType), str_sql(category), str_sql(symlinkPath),str_sql(realPath),str_sql(state)))
+
+def batch_insert_symlink_info(batch_list):
+    sql = "INSERT INTO SYMLINK_MANAGER(driveType,category,symlinkPath,realPath,state) VALUES (?, ?, ?, ?, ?)"
+    checked_batch_list = []
+    for item in batch_list:
+        driveType,category,symlinkPath,realPath,state = item
+        if not driveType or not category or not symlinkPath or not realPath or not state:
+            continue
+        symlinkPath = os.path.normpath(symlinkPath)
+        realPath = os.path.normpath(realPath)
+        checked_batch_list.append((str_sql(driveType), str_sql(category), str_sql(symlinkPath),str_sql(realPath),str_sql(state)))
+    return update_by_sql_batch(sql,checked_batch_list)
+
+
+# 更新软链接对照条目
+def update_symlink_info(id,**kwargs):
+    '''
+    # STATE: Y正常 N软链接被删除 C真实文件被删除(检查网盘离线情况) U未知情况
+    '''
+    add_sql = ""
+    if not id or not kwargs:
+        return False
+    for key in kwargs.keys():
+        if key not in ('driveType','category','symlinkPath','realPath','state'):
+            return False
+    for key,value in kwargs.items():
+        if key in ('symlinkPath','realPath'):
+            value = os.path.normpath(value)
+        add_sql += " %s = '%s'," % (key,value)
+        
+    sql = "UPDATE SYMLINK_MANAGER SET %s WHERE id = ?" % add_sql[:-1]
+    return update_by_sql(sql, (id,))
+
+
+# 查询某类软链接对照条目
+def get_symlink_info_formatted(driveType=None,category=None,symlinkPath=None,realPath=None,state=None,like= False):
+
+    fieldNames = select_by_sql("PRAGMA table_info([SYMLINK_MANAGER])")
+    
+    add_sql = ""
+    if driveType:
+        add_sql += " AND driveType = '%s'" % driveType
+    if category:
+        add_sql += " AND category = '%s'" % category
+    if symlinkPath:
+        symlinkPath = os.path.normpath(symlinkPath)
+        if not symlinkPath == '/':
+            if like:
+                add_sql += " AND symlinkPath LIKE '%s%%'" % symlinkPath
+            else:
+                add_sql += " AND symlinkPath = '%s'" % symlinkPath
+    if realPath:
+        realPath = os.path.normpath(realPath)
+        add_sql += " AND realPath = '%s'" % realPath
+    if state:
+        add_sql += " AND state = '%s'" % state
+    
+    sql = "SELECT * FROM SYMLINK_MANAGER WHERE 1=1%s"%add_sql
+    fieldValues = select_by_sql(sql)
+
+    symlink_infos = {}
+    for fieldValues_item in fieldValues:
+        symlink_info = {}
+        for i in range(0,len(fieldNames)):
+            field = fieldNames[i][1]
+            value = fieldValues_item[i]
+            if field != 'symlinkPath':
+                symlink_info[field] = value
+            else:
+                symlink_path = value
+        symlink_infos[symlink_path] = symlink_info
+    return symlink_infos
+
+# 查询软链接对照条目是否存在
+def is_symlink_exists(path):
+    if not path:
+        return False
+    path = os.path.normpath(path)
+    sql = "SELECT COUNT(1) FROM SYMLINK_MANAGER WHERE symlinkPath = ?"
+    ret = select_by_sql(sql, (str_sql(path),))
+    if ret and ret[0][0] > 0:
+        return True
+    else:
+        return False
+
+def get_symlink_info_by_realpath(path):
+    if not path:
+        return False
+    path = os.path.normpath(path)
+    sql = "SELECT * FROM SYMLINK_MANAGER WHERE realPath = ?"
+    return select_by_sql(sql, (str_sql(path),))
+
+
+# 删除软链接对照条目
+def delete_symlink_info(id):
+    if not id:
+        return False
+    sql = "DELETE FROM SYMLINK_MANAGER WHERE id = ?"
+    return update_by_sql(sql, (id,))
+
+
+##########################
+###### 云端目录管理 #######
+##########################
+
+def insert_cloud_folder_info(driveType,category,path,size):
+    if not driveType or not path or (type(size)!=int) or (type(category) != str):
+        return False
+    if is_cloud_folder_exists(driveType,category,path):
+        return False
+    else:
+        path = os.path.normpath(path)
+        sql = "INSERT INTO CLOUD_FOLDER_MANAGER(driveType,category,path,size) VALUES (?, ?, ?, ?)"
+        return update_by_sql(sql, (str_sql(driveType), str_sql(category),str_sql(path), str_sql(size)))
+
+def batch_insert_cloud_folder_info(batch_list):
+    sql = "INSERT INTO CLOUD_FOLDER_MANAGER(driveType,category,path,size) VALUES (?, ?, ?, ?)"
+    checked_batch_list = []
+    for item in batch_list:
+        driveType,category,path,size = item
+        if not driveType or not category or not path or not size:
+            continue
+        if is_cloud_folder_exists(driveType,category,path):
+            continue
+        else:
+            path = os.path.normpath(path)
+            checked_batch_list.append((str_sql(driveType), str_sql(category), str_sql(path), str_sql(size)))
+    return update_by_sql_batch(sql,checked_batch_list)
+
+def is_cloud_folder_exists(driveType,category,path):
+    if not driveType or not category or not path:
+        return False
+    path = os.path.normpath(path)
+    sql = "SELECT COUNT(1) FROM CLOUD_FOLDER_MANAGER WHERE driveType = ? AND category = ? AND path = ?"
+    ret = select_by_sql(sql, (str_sql(driveType),str_sql(category), str_sql(path)))
+    if ret and ret[0][0] > 0:
+        return True
+    else:
+        return False
+def get_cloud_folder_info_formatted(driveType=None,category=None,path=None,size=None):
+    
+        fieldNames = select_by_sql("PRAGMA table_info([CLOUD_FOLDER_MANAGER])")
+    
+        add_sql = ""
+        if driveType:
+            add_sql += " AND driveType = '%s'" % driveType
+        if category or type(category)==str:
+            add_sql += " AND category = '%s'" % category
+        if path:
+            path = os.path.normpath(path)
+            if path == '/':
+                add_sql += " AND path = '%s'" % path
+            else:
+                add_sql += " AND path LIKE '" + path + "%'"
+        if size:
+            add_sql += " AND size = '%s'" % size
+        
+        sql = "SELECT * FROM CLOUD_FOLDER_MANAGER WHERE 1=1%s"%add_sql
+        fieldValues = select_by_sql(sql)
+    
+        cloud_folder_infos = {}
+        for fieldValues_item in fieldValues:
+            cloud_folder_info = {}
+            for i in range(0,len(fieldNames)):
+                field = fieldNames[i][1]
+                value = fieldValues_item[i]
+                if field != 'path':
+                    cloud_folder_info[field] = value
+                else:
+                    cloud_folder_path = value
+            cloud_folder_infos[cloud_folder_path] = cloud_folder_info
+        return cloud_folder_infos
+def get_cloud_folder_info_by_path(path):
+    if not path:
+        return False
+    path = os.path.normpath(path)
+    sql = "SELECT * FROM CLOUD_FOLDER_MANAGER WHERE path = ?"
+    return select_by_sql(sql, (str_sql(path),))
+
+def update_cloud_folder_info(id,**kwargs):
+    if not id:
+        return False
+    add_sql = ""
+    for key,value in kwargs.items():
+        if key != 'path':
+            add_sql += " %s = '%s'," % (key,value)
+        else:
+            value = os.path.normpath(value)
+        add_sql += " %s = '%s'," % (key,value)
+        
+    sql = "UPDATE CLOUD_FOLDER_MANAGER SET %s WHERE id = ?" % add_sql[:-1]
+    return update_by_sql(sql, (id,))
+
+def delete_cloud_folder_info(id):
+    if not id:
+        return False
+    sql = "DELETE FROM CLOUD_FOLDER_MANAGER WHERE id = ?"
+    return update_by_sql(sql, (id,))
+
+
+
+###################
+###### 电影 #######
+###################
+
+# 判断电影是否存在
+def isExistsMovie(tagType,tagid):
+    if not tagid:
+        return False
+    if not tagType:
+        return False
+    sql = "SELECT COUNT(1) FROM CLOUD_MOVIE WHERE %s=%s" % (tagType,str(tagid))
+    ret = select_by_sql(sql)
+    if ret and ret[0][0] > 0:
+        return True
+    else:
+        return False
+
+
+
+# 获取所有电影的某个属性
+def getFieldFromDB(fieldName,distinct=False):
+    if distinct:
+        sql = "SELECT DISTINCT %s FROM CLOUD_MOVIE" % (fieldName)
+    else:
+        sql = "SELECT %s FROM CLOUD_MOVIE" % (fieldName)
+    return select_by_sql(sql)
+
+
+# 用TagID获取MediaInfo
+def getDetailInfosFromDB(fieldName='',fieldValue=''):
+    fieldNames = select_by_sql("PRAGMA table_info([CLOUD_MOVIE])")
+    if not fieldValue and not fieldValue:       
+        fieldValues = select_by_sql("SELECT * FROM CLOUD_MOVIE")
+    else:
+        fieldValues = select_by_sql("SELECT * FROM CLOUD_MOVIE WHERE %s=%s" % (fieldName,str(fieldValue)))
+        
+
+    mediaInfos = []
+    if type(fieldValues) == tuple:
+        fieldValues = [fieldValues]
+    for fieldValues_item in fieldValues:
+        mediaInfo = {}
+        for i in range(0,len(fieldNames)):
+            field = fieldNames[i][1]
+            value = fieldValues_item[i]
+            if value and types.get(field) == 'list':
+                value = value.split('|')
+            if value:
+                    mediaInfo[field] = value
+        mediaInfos.append(mediaInfo)
+    
+    return mediaInfos
+
+
+# 插入电影信息
+def insertMovie(mediaInfo):
+    # 插入电影，如果id在数据库中存在，则更新，否则插入
+    if not mediaInfo:
+        return False
+
+    id = mediaInfo.get('id') 
+    if id:
+        del mediaInfo['id']
+
+    mergeKeyList = []
+    mergeValueList = []
+    for key,value in mediaInfo.items():
+        # 这得加个'xxx' 否则会出错 和 GROUP BY命令重合了
+        if key in ('release','group'):
+            mergeKeyList.append("'%s'"%key)
+        else:
+            mergeKeyList.append(key)
+        if type(value) == list:
+            mergeValueList.append( '"%s"'%'|'.join(value))
+        elif type(value) == int or type(value) == bool:
+            mergeValueList.append("%s"%str_sql(value))
+        else:
+            mergeValueList.append("'%s'"%str_sql(value))
+        
+    if id:
+        sql = "UPDATE CLOUD_MOVIE SET %s=%s WHERE id=%s" % (','.join(mergeKeyList), ','.join(mergeValueList), id)
+    else:
+        sql = "INSERT INTO CLOUD_MOVIE(%s) VALUES(%s)" % (','.join(mergeKeyList), ','.join(mergeValueList))
+    return update_by_sql(sql)
+
+# 更新电影信息
+def updateMovieDetailInfo(mediaInfo):
+    if not mediaInfo:
+        return False
+    mergeKeyList = []
+    mergeValueList = []
+    for key,value in mediaInfo.items():
+        if key in ('release','group'):
+            mergeKeyList.append("'%s'"%key)
+        else:
+            mergeKeyList.append(key)
+        if type(value) == list:
+            mergeValueList.append( '"%s"'%'|'.join(value))
+        elif type(value) == int or type(value) == bool:
+            mergeValueList.append("%s"%str_sql(value))
+        else:
+            mergeValueList.append("'%s'"%str_sql(value))
+            
+
+    sql = "UPDATE CLOUD_MOVIE SET %s=%s WHERE" % (','.join(mergeKeyList), ','.join(mergeValueList))
+    return update_by_sql(sql)
+
+
+
+# 删除已存在电影
+def deleteMovie(filename):
+    if not filename:
+        return False
+    sql = "DELETE FROM CLOUD_MOVIE WHERE filename='%s'" % (filename)
+    return update_by_sql(sql)
+
+def deleteMovieByID(id):
+    if not id:
+        return False
+    sql = "DELETE FROM CLOUD_MOVIE WHERE id=%s" % (id)
+    return update_by_sql(sql)
+
+#############################################

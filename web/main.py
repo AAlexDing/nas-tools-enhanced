@@ -7,7 +7,8 @@ from flask import Flask, request, json, render_template, make_response, session,
 from flask_login import LoginManager, UserMixin, login_user, login_required, current_user
 from werkzeug.security import check_password_hash
 import xml.dom.minidom
-
+from cloud.clouddrive import CloudDrive  ######################
+from cloud.monitor import CloudLocalMonitor  ##################
 import log
 from pt.sites import Sites
 from pt.downloader import Downloader
@@ -15,7 +16,7 @@ from pt.searcher import Searcher
 from rmt.media import Media
 from pt.media_server import MediaServer
 from rmt.metainfo import MetaInfo
-from config import WECHAT_MENU, PT_TRANSFER_INTERVAL, TORRENT_SEARCH_PARAMS
+from config import WECHAT_MENU, PT_TRANSFER_INTERVAL, TORRENT_SEARCH_PARAMS,  CLOUD_NATIVESYNC_INTERVAL, CONSISTENCY_CHECK_INTERVAL
 from utils.functions import *
 from utils.meta_helper import MetaHelper
 from utils.security import Security
@@ -43,7 +44,7 @@ def create_flask_app(config):
         "id": 0,
         "name": admin_user,
         "password": admin_password[6:],
-        "pris": "我的媒体库,资源搜索,推荐,站点管理,订阅管理,下载管理,媒体识别,服务,系统设置"
+        "pris": "我的媒体库,资源搜索,推荐,站点管理,订阅管理,下载管理,媒体识别,云端,服务,系统设置"
     }]
 
     App = Flask(__name__)
@@ -831,6 +832,52 @@ def create_flask_app(config):
                     {'name': 'PT站签到', 'time': tim_ptsignin, 'state': sta_ptsignin, 'id': 'ptsignin', 'svg': svg,
                      'color': color})
 
+        ######################################################
+        cloud = config.get_config('cloud')
+        cloud_monitor = cloud.get('cloud_monitor')
+
+        # 云端本地同步
+        
+        clouddrive = cloud.get('clouddrive')
+        if clouddrive and cloud_monitor:
+            cloud_native_sync = clouddrive.get('host')
+            root_path = cloud.get('cloud_root_path')
+            if cloud_native_sync and root_path:
+                tim_cnsync = str(round(CLOUD_NATIVESYNC_INTERVAL / 60)) + " 分钟"
+                sta_cnsync = 'ON'
+            else:
+                tim_cnsync = ""
+                sta_cnsync = 'OFF'
+            svg = '''
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-cloud-rain" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <path d="M7 18a4.6 4.4 0 0 1 0 -9a5 4.5 0 0 1 11 2h1a3.5 3.5 0 0 1 0 7"></path>
+                <path d="M11 13v2m0 3v2m4 -5v2m0 3v2"></path>
+            </svg>
+            '''
+
+            color = "red"
+            scheduler_cfg_list.append(
+                {'name': ' 云端新文件检测', 'time': tim_cnsync, 'state': sta_cnsync, 'id': 'cnsync', 'svg': svg,
+                    'color': color})
+
+        # 本地云端一致性检测
+        if cloud_monitor:
+            tim_consistencycheck = str(CONSISTENCY_CHECK_INTERVAL) + " 小时"
+            sta_consistencycheck = 'ON'
+            svg = '''
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-refresh" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                    <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"></path>
+                    <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"></path>
+            </svg>
+            '''
+            color = "red"
+            scheduler_cfg_list.append(
+                {'name': '一致性检测', 'time': tim_consistencycheck, 'state': sta_consistencycheck, 'id': 'cloud_monitor', 'svg': svg, 'color': color})
+
+        ##########################################################
+
         # 目录同步
         sync = config.get_config('sync')
         if sync:
@@ -1035,6 +1082,190 @@ def create_flask_app(config):
         SyncPaths = sorted(SyncPaths, key=lambda o: o.get("from"))
         SyncCount = len(SyncPaths)
         return render_template("setting/directorysync.html", SyncPaths=SyncPaths, SyncCount=SyncCount)
+#################################################################################
+
+
+    # 云端状态页面
+    @App.route('/cloudstatus', methods=['POST', 'GET'])
+    @login_required
+    def cloudstatus():
+        # 获取媒体数量
+        ServerSucess = True
+        MovieCount = 0
+        SeriesCount = 0
+        EpisodeCount = 0
+        SongCount = 0
+        MediaServerClient = MediaServer()
+        media_count = MediaServerClient.get_medias_count()
+        if media_count:
+            MovieCount = "{:,}".format(media_count.get('MovieCount'))
+            SeriesCount = "{:,}".format(media_count.get('SeriesCount'))
+            SongCount = "{:,}".format(media_count.get('SongCount'))
+            if media_count.get('EpisodeCount'):
+                EpisodeCount = "{:,}".format(media_count.get('EpisodeCount'))
+            else:
+                EpisodeCount = ""
+        elif media_count is None:
+            ServerSucess = False
+
+        # 获得活动日志
+        Activity = MediaServerClient.get_activity_log(30)
+
+        # 云盘空间
+        UsedSpace = 0
+        TotalSpace = 0
+        FreeSpace = 0
+        UsedPercent = 0
+        DriveCount = 0
+        CloudDriveClient = CloudDrive()
+        driveInfos = CloudDriveClient.get_all_space_info()
+        TotalSpaceAry = []
+        UsedSpaceAry = []
+        DriveStatus = []
+        
+        driveColorMap = {
+            'webdav':'yellow',
+            '115':'azure',
+            '阿里云盘':'indigo',
+            '天翼云盘':'cyan'
+        }
+
+
+        if driveInfos:
+            space_list = []
+            for driveInfo in driveInfos:
+                used = driveInfo.get('usedSpace')
+                total = driveInfo.get('totalSpace')
+                if "%s-%s" % (used, total) not in space_list:
+                    space_list.append("%s-%s" % (used, total))
+                    TotalSpaceAry.append(total)
+                    UsedSpaceAry.append(used)
+                # 云盘状态
+                # 云盘名称、云盘类型、云盘状态
+                cloudType = driveInfo.get('cloudName')
+                if cloudType.find('WebDAV')!=-1:
+                    cloudType = 'webdav'
+                if driveInfo.get('totalSpace') == 0:
+                    driveStatus = 0
+                else:
+                    DriveCount += 1
+                    driveStatus = 1
+
+                driveColor = driveColorMap.get(cloudType)
+                DriveStatus.append({"driveName": driveInfo.get('rootFolderPath').strip('/'), "cloudType": cloudType,
+                                    "driveStatus": driveStatus,'driveColor':driveColor})
+            TotalSpace = sum(TotalSpaceAry)
+            UsedSpace = sum(UsedSpaceAry)
+
+            # 使用百分比格式化
+            if TotalSpace:
+                UsedPercent = "%0.1f" % ((UsedSpace / TotalSpace) * 100)
+            # 总剩余空间 格式化
+            FreeSpace = "{:,} TB".format(round((TotalSpace - UsedSpace) / 1024 / 1024 / 1024 / 1024, 2))
+            # 总使用空间 格式化
+            UsedSpace = "{:,} TB".format(round(UsedSpace / 1024 / 1024 / 1024 / 1024, 2))
+            # 总空间 格式化
+            TotalSpace = "{:,} TB".format(round(TotalSpace / 1024 / 1024 / 1024 / 1024, 2))
+
+            # 云盘状态
+            # 云盘名称、云盘类型、云盘状态
+            
+
+        
+
+
+
+        # 查询媒体统计
+        MovieChartLabels = []
+        MovieNums = []
+        TvChartData = {}
+        TvNums = []
+        AnimeNums = []
+        for statistic in get_transfer_statistics():
+            if statistic[0] == "电影":
+                MovieChartLabels.append(statistic[1])
+                MovieNums.append(statistic[2])
+            else:
+                if not TvChartData.get(statistic[1]):
+                    TvChartData[statistic[1]] = {"tv": 0, "anime": 0}
+                if statistic[0] == "电视剧":
+                    TvChartData[statistic[1]]["tv"] += statistic[2]
+                elif statistic[0] == "动漫":
+                    TvChartData[statistic[1]]["anime"] += statistic[2]
+        TvChartLabels = list(TvChartData)
+        for tv_data in TvChartData.values():
+            TvNums.append(tv_data.get("tv"))
+            AnimeNums.append(tv_data.get("anime"))
+
+        return render_template("/cloud/cloudstatus.html",
+                               ServerSucess=ServerSucess,
+                               MediaCount={'MovieCount': MovieCount, 'SeriesCount': SeriesCount,
+                                           'SongCount': SongCount, "EpisodeCount": EpisodeCount},
+                               Activitys=Activity,
+                               DriveCount=DriveCount,
+                               FreeSpace=FreeSpace,
+                               TotalSpace=TotalSpace,
+                               UsedSpace=UsedSpace,
+                               UsedPercent=UsedPercent,
+                               MovieChartLabels=MovieChartLabels,
+                               TvChartLabels=TvChartLabels,
+                               MovieNums=MovieNums,
+                               TvNums=TvNums,
+                               AnimeNums=AnimeNums,
+                               DriveStatus=DriveStatus,
+                               Config=config.get_config()
+                               )
+
+
+    # 手工识别页面
+    @App.route('/cloudunidentification', methods=['POST', 'GET'])
+    @login_required
+    def cloudunidentification():
+        Items = []
+        Records = get_transfer_unknown_paths()
+        TotalCount = len(Records)
+        for rec in Records:
+            if not rec[1]:
+                continue
+            Items.append({"id": rec[0], "path": rec[1], "to": rec[2], "name": rec[1]})
+        return render_template("cloud/cloudunidentification.html",
+                               TotalCount=TotalCount,
+                               Items=Items)
+
+
+    # 目录同步页面
+    @App.route('/cnsync', methods=['POST', 'GET'])
+    @login_required
+    def cnsync():
+        cnsync_paths = config.get_config("cloud").get("cnsync_path")
+        CNSyncPaths = []
+        if cnsync_paths:
+            if isinstance(cnsync_paths, list):
+                for cnsync_path in cnsync_paths:
+                    CNSyncPath = {}
+                    rename_flag = True
+                    if cnsync_path.startswith("["):
+                        rename_flag = False
+                        cnsync_path = cnsync_path[1:-1]
+                    paths = cnsync_path.split("|")
+                    if not paths:
+                        continue
+                    if len(paths) > 0:
+                        if not paths[0]:
+                            continue
+                        CNSyncPath['from'] = paths[0]
+                    if len(paths) > 1:
+                        CNSyncPath['to'] = paths[1]
+                    if len(paths) > 2:
+                        CNSyncPath['unknown'] = paths[2]
+                    CNSyncPath['rename'] = rename_flag
+                    CNSyncPaths.append(CNSyncPath)
+            else:
+                CNSyncPaths = [{"from": cnsync_paths}]
+        CNSyncCount = len(CNSyncPaths)
+        return render_template("cloud/cnsync.html", SyncPaths=CNSyncPaths, SyncCount=CNSyncCount)
+
+##################################################################################
 
     # 豆瓣页面
     @App.route('/douban', methods=['POST', 'GET'])

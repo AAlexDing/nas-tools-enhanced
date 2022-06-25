@@ -1,0 +1,372 @@
+<div class="container-xxl">
+  <div class="page-header d-print-none">
+    <div class="row align-items-center">
+      <div class="col">
+        <h2 class="page-title">
+          手动识别
+        </h2>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- 业务页面代码 -->
+<div class="page-body">
+  <div class="container-xxl">
+    <div class="row row-cards">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <div class="d-flex">
+              <div class="text-muted">
+                共 {{ TotalCount }} 条记录
+              </div>
+            </div>
+            <div class="card-actions btn-actions">
+              <a href="javascript:delete_checked_unknown()" class="btn-action" title="删除选中">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                   <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                   <line x1="4" y1="7" x2="20" y2="7"></line>
+                   <line x1="10" y1="11" x2="10" y2="17"></line>
+                   <line x1="14" y1="11" x2="14" y2="17"></line>
+                   <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"></path>
+                   <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"></path>
+                </svg>
+              </a>
+            </div>
+          </div>
+          <div class="table-responsive" style="min-height: 300px">
+            <table class="table table-vcenter card-table">
+              <thead>
+                <tr>
+                  <th class="w-1"><input class="form-check-input m-0 align-middle" id="unknown_check_all_btn" type="checkbox" aria-label="全选"></th>
+                  <th>文件名</th>
+                  <th class="w-5"></th>
+                </tr>
+              </thead>
+              <tbody>
+              {% if TotalCount > 0 %}
+                {% for Path in Items %}
+                <tr>
+                  <td><input class="form-check-input m-0 align-middle" id="check_{{ Path.id }}" type="checkbox"></td>
+                  <td >
+                    {{ Path.name }}
+                    {% if Path.to %}
+                    <div class="text-muted">
+                      => {{ Path.to }}
+                    </div>
+                    {% endif %}
+                  </td>
+                  <td>
+                   <div class="dropdown">
+                      <a href="#" class="btn-action" data-bs-toggle="dropdown" aria-expanded="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /><circle cx="12" cy="5" r="1" /></svg>
+                      </a>
+                      <div class="dropdown-menu dropdown-menu-end">
+                        <a class="dropdown-item" href='javascript:re_identification("{{ Path.id }}")'>
+                          重新识别
+                        </a>
+                        <a class="dropdown-item" href='javascript:show_rename_modal("{{ Path.id }}", "{{ Path.name }}")'>
+                          手动识别
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item text-danger" href='javascript:del_unknown_path("{{ Path.id }}")'>
+                          删除
+                        </a>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="3" align="center">没有数据</td>
+                </tr>
+              {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal modal-blur fade" id="modal-rename" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">手动识别</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">路径</label>
+          <input type="text" id="rename_path" class="form-control" readonly>
+          <input type="hidden" id="unknown_id">
+          <div class="invalid-feedback" id="rename_retmsg"></div>
+        </div>
+        <label class="form-label">类型</label>
+        <div class="form-selectgroup-boxes row mb-3">
+          <div class="col-lg-4">
+            <label class="form-selectgroup-item">
+              <input type="radio" name="rename_type" value="MOV" class="form-selectgroup-input" checked>
+              <span class="form-selectgroup-label d-flex align-items-center p-3">
+                <span class="me-3">
+                  <span class="form-selectgroup-check"></span>
+                </span>
+                <span class="form-selectgroup-label-content">
+                  <span class="form-selectgroup-title strong mb-1">电影</span>
+                </span>
+              </span>
+            </label>
+          </div>
+          <div class="col-lg-4">
+            <label class="form-selectgroup-item">
+              <input type="radio" name="rename_type" value="TV" class="form-selectgroup-input">
+              <span class="form-selectgroup-label d-flex align-items-center p-3">
+                <span class="me-3">
+                  <span class="form-selectgroup-check"></span>
+                </span>
+                <span class="form-selectgroup-label-content">
+                  <span class="form-selectgroup-title strong mb-1">电视剧</span>
+                </span>
+              </span>
+            </label>
+          </div>
+          <div class="col-lg-4">
+            <label class="form-selectgroup-item">
+              <input type="radio" name="rename_type" value="ANIME" class="form-selectgroup-input">
+              <span class="form-selectgroup-label d-flex align-items-center p-3">
+                <span class="me-3">
+                  <span class="form-selectgroup-check"></span>
+                </span>
+                <span class="form-selectgroup-label-content">
+                  <span class="form-selectgroup-title strong mb-1">动漫</span>
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-lg-6">
+            <div class="mb-3">
+              <label class="form-label">标题</label>
+              <input type="text" id="rename_title" class="form-control">
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="mb-3">
+              <label class="form-label">年份</label>
+              <input type="text" id="rename_year" class="form-control">
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="mb-3">
+              <label class="form-label">TMDB ID</label>
+              <input type="text" id="rename_tmdb" class="form-control">
+            </div>
+          </div>
+          <div class="col-lg-6" id="rename_season_div">
+            <div class="mb-3">
+              <label class="form-label">季</label>
+              <select class="form-select" id="rename_season">
+                <option value="" selected>请选择</option>
+              </select>
+            </div>
+          </div>
+            <div class="col-lg-6" id="rename_episode_div">
+              <div class="mb-3">
+                <label class="form-label">自定义集数位置(<a href="#" title="标定集数位置，例如：铁齿铜牙纪晓岚{episode}.iso">?</a>)</label>
+                <input type="text" id="rename_episode" class="form-control">
+              </div>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="rename_btn" class="btn btn-primary">转移</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal modal-blur fade" id="unknown-modal-failed" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="modal-status bg-warning"></div>
+      <div class="modal-body text-center py-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon mb-2 text-warning icon-lg" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v2m0 4v.01" /><path d="M5 19h14a2 2 0 0 0 1.84 -2.75l-7.1 -12.25a2 2 0 0 0 -3.5 0l-7.1 12.25a2 2 0 0 0 1.75 2.75" /></svg>
+        <h3>失败</h3>
+        <div class="text-muted" id="unknown_failed_str">重新识别失败！</div>
+      </div>
+      <div class="modal-footer">
+        <div class="w-100">
+          <div class="row">
+            <div class="col"><a href="#" class="btn btn-warning w-100" data-bs-dismiss="modal">
+                确定
+              </a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  //手动转移
+  function manual_rename() {
+    var unknown_id = $('#unknown_id').val();
+    var type = $('input:radio[name=rename_type]:checked').val();
+    var path = $("#rename_path").val();
+    var tmdb = $("#rename_tmdb").val();
+    var title = $("#rename_title").val();
+    var year = $("#rename_year").val();
+    var season = $("#rename_season").val();
+    var episode_format = $("#rename_episode").val();
+
+    if (!unknown_id){
+      return;
+    }
+
+    if (path == "") {
+      $("#rename_path").addClass("is-invalid");
+      return;
+    } else {
+      $("#rename_path").removeClass("is-invalid");
+    }
+
+    if (tmdb == "") {
+      if (title == "") {
+        $("#rename_title").addClass("is-invalid");
+        return;
+      } else {
+        $("#rename_title").removeClass("is-invalid");
+      }
+
+      if (year == "" || isNaN(year)) {
+        $("#rename_year").addClass("is-invalid");
+        return;
+      } else {
+        $("#rename_year").removeClass("is-invalid");
+      }
+    } else {
+      if (isNaN(tmdb)) {
+        $("#rename_tmdb").addClass("is-invalid");
+        return;
+      } else {
+        $("#rename_tmdb").removeClass("is-invalid");
+      }
+    }
+
+    // 开始处理
+    var data = { "unknown_id": unknown_id, "path": path, "type": type, "title": title, "year": year, "tmdb": tmdb, "season": season, "episode_format": episode_format};
+    $("#rename_btn").attr("disabled", true);
+    $("#rename_btn").text("处理中...");
+    $("#rename_retmsg").hide()
+    ajax_post("rename", data, function (ret) {
+      $("#rename_btn").attr("disabled", false);
+      $("#rename_btn").text("转移");
+      if (ret.retcode == 0) {
+        //处理成功
+        $('#modal-rename').modal('hide');
+        navmenu('unidentification');
+      } else {
+        //处理失败
+        regmsg = ret.retmsg;
+        $("#rename_retmsg").show()
+        $("#rename_retmsg").text(regmsg)
+      }
+    });
+  }
+
+  //显示弹出窗口
+  function show_rename_modal(id, path){
+    $('#unknown_id').val(id);
+    $('#rename_path').val(path);
+    $("#rename_season").empty();
+    $("#rename_season").append('<option value="" selected>请选择</option>');
+    for(var i=0; i<=50; i++){
+      $("#rename_season").append('<option value="' + i + '">第' + i +'季</option>');
+    }
+    type = $('input:radio[name=rename_type]:checked').val();
+    if (type == "MOV") {
+      $("#rename_season_div").hide();
+      $("#rename_episode_div").hide();
+      $("#rename_season").val("");
+    } else {
+      $("#rename_season_div").show();
+      $("#rename_episode_div").show();
+    }
+    $('#modal-rename').modal('show');
+  }
+
+  //删除路径
+  function del_unknown_path(id) {
+    if (id == "") {
+      return;
+    }
+    var cmd = "del_unknown_path";
+    var data = { "id": id };
+    ajax_post(cmd, data, function (ret) {
+      navmenu('unidentification');
+    });
+  }
+
+  //转移按钮
+  $("#rename_btn").click(function () {
+    manual_rename();
+  });
+
+  //重新识别
+  function re_identification(unknown_id){
+    var cmd = "re_identification";
+    var data = { "unknown_id": unknown_id };
+    $("#modal-wait").modal("show");
+    ajax_post(cmd, data, function (ret) {
+      $("#modal-wait").modal("hide");
+      if(ret.retcode==0){
+        navmenu('unidentification');
+      }else{
+        $("#unknown_failed_str").text("重新识别失败："+ ret.retmsg +"！");
+        $("#unknown-modal-failed").modal('show');
+      }
+    });
+  }
+
+  //批量删除
+  function delete_checked_unknown(){
+    var ids = [];
+    var i = 0;
+    $("input[type=checkbox]").each(function(){
+      if($(this).prop("checked")){
+        ids[i] = $(this).attr("id").replace("check_", "");
+        i = i + 1;
+      }
+    });
+    if(i == 0){
+      return;
+    }
+    var cmd = "del_unknown_path";
+    var data = { "id": ids };
+    ajax_post(cmd, data, function (ret) {
+      navmenu('unidentification');
+    });
+  }
+
+  //单选框事件
+  $('input[type=radio][name=rename_type]').change(function () {
+    if (this.value == 'MOV') {
+      $("#rename_season_div").hide();
+      $("#rename_episode_div").hide();
+      $("#rename_season").val('');
+    }
+    else {
+      $("#rename_season_div").show();
+      $("#rename_episode_div").show();
+    }
+  });
+
+  //全选事件
+  $("#unknown_check_all_btn").change(function(){
+    $("input[type=checkbox]").prop("checked", $(this).prop("checked"));
+  });
+</script>

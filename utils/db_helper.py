@@ -34,6 +34,124 @@ class DBHelper:
         conn = self.__pools.get()
         cursor = conn.cursor()
         try:
+            #########################################
+            # 本地软链接对照表
+            # STATE: Y正常 N软链接被删除 C真实文件被删除(检查网盘离线情况) U未知情况
+            cursor.execute('''CREATE TABLE IF NOT EXISTS SYMLINK_MANAGER
+                                   (id INTEGER PRIMARY KEY AUTOINCREMENT     NOT NULL,
+                                   driveType    TEXT,
+                                   category    TEXT,
+                                   symlinkPath    TEXT,
+                                   realPath   TEXT,
+                                   state    TEXT);''')
+
+            # 云端电影管理表
+            cursor.execute('''CREATE TABLE IF NOT EXISTS CLOUD_MOVIE
+                                   (id INTEGER PRIMARY KEY AUTOINCREMENT     NOT NULL,
+                                   driveType    TEXT,
+                                   zhTitle    TEXT,
+                                   enTitle    TEXT,
+                                   year    INTEGER,
+                                   resolution   TEXT,
+                                   tmdbid   INTEGER,
+                                   imdbid   INTEGER,
+                                   tvdbid   INTEGER,
+                                   videoCodec    TEXT,
+                                   audioCodec    TEXT,
+                                   dynRes    TEXT,
+                                   region   TEXT,
+                                   source   TEXT,
+                                   'release'    TEXT,
+                                   stream    TEXT,
+                                   size    INTEGER,
+                                   advSub    BOOLEAN,
+                                   audioLangNum    INTEGER,
+                                   audioLang    TEXT,
+                                   subLang    TEXT,
+                                   fps    INTEGER,
+                                   bit    INTEGER,
+                                   cd    INTEGER,
+                                   website    TEXT,
+                                   'group'    TEXT,
+                                   filename   TEXT,
+                                   origfilename    TEXT);''')
+            cursor.execute('''CREATE INDEX IF NOT EXISTS INDX_CLOUD_MOVIE_NAME ON CLOUD_MOVIE(filename);''')
+
+            # 云端电视剧管理表
+            cursor.execute('''CREATE TABLE IF NOT EXISTS CLOUD_TVSHOW
+                                   (id INTEGER PRIMARY KEY AUTOINCREMENT     NOT NULL,
+                                   driveType    TEXT,
+                                   category    TEXT,
+                                   zhTitle    TEXT,
+                                   enTitle    TEXT,
+                                   year    INTEGER,
+                                   resolution   TEXT,
+                                   seasonCount    INTEGER,
+                                   episodeCount    INTEGER,
+                                   tmdbid   INTEGER,
+                                   imdbid   INTEGER,
+                                   tvdbid   INTEGER,
+                                   videoCodec    TEXT,
+                                   audioCodec    TEXT,
+                                   dynRes    TEXT,
+                                   source   TEXT,
+                                   'release'    TEXT,
+                                   stream    TEXT,
+                                   size    INTEGER,
+                                   advSub    BOOLEAN,
+                                   audioLangNum    INTEGER,
+                                   audioLang    TEXT,
+                                   subLang    TEXT,
+                                   fps    INTEGER,
+                                   bit    INTEGER,
+                                   website    TEXT,
+                                   'group'    TEXT,
+                                   folderPath    TEXT);''')
+
+            # 云端成人管理表
+            # country: CN-中国 TW-台湾 JP-日本 KR-韩国 US-美国
+            cursor.execute('''CREATE TABLE IF NOT EXISTS CLOUD_TVSHOW
+                                   (id INTEGER PRIMARY KEY AUTOINCREMENT     NOT NULL,
+                                   driveType    TEXT,
+                                   number    TEXT,
+                                   totalparts    INTEGER,
+                                   part    INTEGER,
+                                   resolution   TEXT,
+                                   vr    BOOLEAN,
+                                   sub    BOOLEAN,
+                                   leaked   BOOLEAN,
+                                   mosaic    BOOLEAN,
+                                   umr    BOOLEAN,
+                                   country   TEXT,
+                                   videoCodec    TEXT,
+                                   audioCodec    TEXT,
+                                   size    INTEGER,
+                                   fps    INTEGER,
+                                   website    TEXT,
+                                   filename   TEXT,
+                                   origfilename    TEXT);''')
+
+            # 云端失败的剧集表
+            # STATE Y-已处理 U-未识别/不确定名称 E-剧集错误(缺集、找不到季数) S-刮削失败
+            cursor.execute('''CREATE TABLE IF NOT EXISTS CLOUD_UNKNOWN
+                                   (id INTEGER PRIMARY KEY AUTOINCREMENT     NOT NULL,
+                                   driveType    TEXT,
+                                   mediaType    TEXT,
+                                   category    TEXT,
+                                   path    TEXT,
+                                   state    TEXT);''')
+            cursor.execute('''CREATE INDEX IF NOT EXISTS INDX_CLOUD_UNKNOWN ON CLOUD_UNKNOWN (path);''')
+            cursor.execute('''CREATE INDEX IF NOT EXISTS INDX_CLOUD_UNKNOWN ON CLOUD_UNKNOWN (state);''')
+
+            # 云端各文件夹管理表 ######!!!!!!!增加字段category
+            cursor.execute('''CREATE TABLE IF NOT EXISTS CLOUD_FOLDER_MANAGER
+                                      (id INTEGER PRIMARY KEY AUTOINCREMENT     NOT NULL,
+                                        driveType    TEXT,
+                                        category    TEXT,
+                                        path    TEXT,
+                                        size    BIGINT);''')
+
+            ###########################################
             # 资源搜索结果表
             cursor.execute('''CREATE TABLE IF NOT EXISTS SEARCH_RESULT_INFO
                                    (ID INTEGER PRIMARY KEY AUTOINCREMENT     NOT NULL,

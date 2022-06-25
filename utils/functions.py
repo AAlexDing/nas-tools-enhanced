@@ -453,3 +453,23 @@ def max_ele(a, b):
     if not b:
         return a
     return max(a, b)
+    
+#######################################
+def get_dir_symlink_files(in_path):
+    '''
+    返回目录下所有的符号链接文件
+    '''
+    if not in_path:
+        return []
+    if not os.path.exists(in_path):
+        return []
+    ret_list = []
+    if os.path.isdir(in_path):
+        for root, dirs, files in os.walk(in_path):
+            for file in files:
+                cur_path = os.path.join(root, file)
+                if os.path.islink(cur_path):
+                    ret_list.append(cur_path)
+    return ret_list
+
+####################################

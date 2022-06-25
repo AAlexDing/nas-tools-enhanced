@@ -80,6 +80,7 @@ emby:
   host: http://127.0.0.1:8096
   # 【Emby ApiKey】：在Emby设置->高级->API密钥处生成，注意不要复制到了应用名称
   api_key:
+  user_id:
 
 # 配置Jellyfin服务器信息
 jellyfin:
@@ -321,3 +322,45 @@ security:
 laboratory:
   # 【识别增强】关键字猜想
   search_keyword: false
+
+###################################################
+# 【云端】
+cloud:
+  # 云端本地同步开启
+  cloud_monitor: true
+  # CloudDrive 状态查询
+  clouddrive:
+    # 【CloudDrive IP地址和端口】
+    host: http://192.168.1.1:9798/
+    username: admin
+    password: admin
+  # 【CloudDrive 根目录在宿主机的挂载位置】
+  cloud_root_path: 
+  native_root_path: 
+  cloud_temp_folder: 
+
+  adult:
+    # MDC failed文件夹相对位置
+    rel_MDC_failed_path: temp/failed
+    # 判定是不是0byte文件的阈值 -1K
+    zero_byte_file_threshold: 1024
+    # 是否从文件中获取SHA1值
+    get_SHA1_from_file: false
+    # 是否在素人番号前面加数字 如 200LUXU-2556
+    suren_number: false
+
+  category:
+    movie:
+    - 电影
+    - 纪录片单集
+    tv:
+    - 国产剧
+    - 英美剧
+    - 日韩剧
+    - 纪录片
+    anime:
+    - 动漫
+    adult:
+    - ghs
+
+#######################################

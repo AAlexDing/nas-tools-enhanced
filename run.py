@@ -8,7 +8,8 @@ from service.run import run_scheduler, stop_scheduler
 from utils.check_config import check_config
 from version import APP_VERSION
 from web.app import FlaskApp
-
+from service.run import run_cloud_local_monitor, stop_cloud_local_monitor
+from cloud.monitor import CloudLocalMonitor
 
 def sigal_handler(num, stack):
     print(str(stack))
@@ -17,12 +18,15 @@ def sigal_handler(num, stack):
     stop_scheduler()
     # 停止监控
     stop_monitor()
+    # 停止本地监控
+    stop_cloud_local_monitor()
     # 退出主进程
     quit()
 
 
 if __name__ == "__main__":
     # 参数
+    os.environ['NASTOOL_CONFIG'] = '/mnt/user/Database/WebDAV/05-Code/config.yaml'
     os.environ['TZ'] = 'Asia/Shanghai'
     log.console("配置文件地址：%s" % os.environ.get('NASTOOL_CONFIG'))
     log.console('NASTool 当前版本号：%s' % APP_VERSION)
@@ -45,5 +49,8 @@ if __name__ == "__main__":
     # 启动监控服务
     run_monitor()
 
+    # 启动本地软链接监控服务
+    run_cloud_local_monitor()
+    
     # 启动主WEB服务
     FlaskApp().run_service()

@@ -2,7 +2,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import log
 from config import AUTO_REMOVE_TORRENTS_INTERVAL, PT_TRANSFER_INTERVAL, Config, METAINFO_SAVE_INTERVAL, \
     RELOAD_CONFIG_INTERVAL, SYNC_TRANSFER_INTERVAL, RSS_CHECK_INTERVAL, REFRESH_PT_DATA_INTERVAL, \
-    RSS_DOUBAN_TO_TMDB_INTEVAL
+    RSS_DOUBAN_TO_TMDB_INTEVAL, CONSISTENCY_CHECK_INTERVAL
 from pt.douban import DouBan
 from pt.downloader import Downloader
 from pt.rss import Rss
@@ -10,7 +10,7 @@ from pt.sites import Sites
 from service.sync import Sync
 from utils.functions import singleton
 from utils.meta_helper import MetaHelper
-
+from cloud.monitor import CloudLocalMonitor
 
 @singleton
 class Scheduler:
@@ -140,6 +140,10 @@ class Scheduler:
 
         # 豆瓣RSS转TMDB
         self.SCHEDULER.add_job(Rss().rssdouban_to_tmdb, 'interval', hours=RSS_DOUBAN_TO_TMDB_INTEVAL)
+        ###################################
+        # 本地一致性检测
+        self.SCHEDULER.add_job(CloudLocalMonitor().check_all_files, 'interval', hours=CONSISTENCY_CHECK_INTERVAL)
+        ###################################
 
         self.SCHEDULER.print_jobs()
 

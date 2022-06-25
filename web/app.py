@@ -1,7 +1,8 @@
 import log
 from config import Config
 from web.main import create_flask_app
-
+import threading
+from cloud.monitor import CloudLocalMonitor
 
 class FlaskApp:
     __app = None
@@ -11,6 +12,7 @@ class FlaskApp:
 
     def __init__(self):
         self.init_config()
+        self._do_startup_jobs() ##########################
 
     def init_config(self):
         config = Config()
@@ -44,3 +46,10 @@ class FlaskApp:
                 )
         except Exception as err:
             log.error("【RUN】启动web服务失败：%s" % str(err))
+    #################################
+    def _do_startup_jobs(self):
+        def run_job():
+            CloudLocalMonitor().check_all_files()
+        t1 = threading.Thread(target=run_job)
+        t1.start()
+    #####################################

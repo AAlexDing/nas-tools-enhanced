@@ -1,7 +1,7 @@
 import log
 from service.scheduler import Scheduler
 from service.sync import Sync
-
+from cloud.monitor import CloudLocalMonitor
 
 def run_scheduler():
     """
@@ -57,3 +57,34 @@ def restart_monitor():
     """
     stop_monitor()
     run_monitor()
+
+###############################
+
+def run_cloud_local_monitor():
+    """
+    启动本地监控
+    """
+    try:
+        CloudLocalMonitor().run_service()
+    except Exception as err:
+        log.error("【RUN】启动本地软链接监控服务失败：%s" % str(err))
+
+
+def stop_cloud_local_monitor():
+    """
+    停止本地监控
+    """
+    try:
+        CloudLocalMonitor().stop_service()
+    except Exception as err:
+        log.error("【RUN】停止本地软链接监控服务失败：%s" % str(err))
+
+
+def restart_cloud_local_monitor():
+    """
+    重启本地监控
+    """
+    stop_cloud_local_monitor()
+    run_cloud_local_monitor()
+
+###############################################

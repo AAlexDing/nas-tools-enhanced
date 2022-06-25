@@ -34,7 +34,7 @@ from utils.sqls import *
 from utils.types import MediaType, SearchType, DownloaderType, SyncType
 from web.backend.search_torrents import search_medias_for_web, search_media_by_message
 from web.backend.subscribe import add_rss_subscribe, add_rss_substribe_from_string
-
+from cloud.monitor import CloudLocalMonitor
 
 class WebAction:
     config = None
@@ -255,7 +255,8 @@ class WebAction:
             "ptsignin": Sites().signin,
             "sync": Sync().transfer_all_sync,
             "rssdownload": Rss().rssdownload,
-            "douban": DouBan().sync
+            "douban": DouBan().sync,
+            "cloud_monitor": CloudLocalMonitor().check_all_files
         }
         sch_item = data.get("item")
         if sch_item and commands.get(sch_item):
